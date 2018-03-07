@@ -1,10 +1,54 @@
+var socket = io.connect("http://24.16.255.56:8888");
 
+socket.on("load", function (data) {
+  var i = 0;
+    for (;i < gameEngine.entities.length; i++) {
+      gameEngine.entities[i].removeFromWorld = true;
+    }
+    var json = JSON.parse(data.data);
+    var count = 0;
+    json.forEach(function(boid) {
+
+      var temp = new Boid(gameEngine, boid.x, boid.y);
+      temp.velocity = new Vector(boid.velocity.x, boid.velocity.y);
+      temp.location =  new Vector(boid.location.x, boid.location.y);
+      temp.acceleration =  new Vector(0, 0);
+      temp.r = 15;
+      temp.maxSpeed = 5;
+      temp.maxForce = 0.03;
+      temp.game = gameEngine;
+      console.log(boid.x);
+      gameEngine.addEntity(temp);
+    });
+});
+
+function save(){
+  var boids = [];
+  ents = JSON.stringify(gameEngine.entities,
+    function(key, value) {
+      if (typeof value === 'object' && value !== null) {
+          if (boids.indexOf(value) !== -1) {
+              return;
+          }
+          boids.push(value);
+      }
+      return value;
+    });
+  console.log(ents);
+  boids = null;
+  socket.emit("save", { studentname: "Haylee Ryan", statename: "state", data: ents});
+}
+
+function load(){
+  socket.emit("load", { studentname: "Haylee Ryan", statename: "state" });
+}
 
 function Boid(game, x, y) {
     this.r = 15;
     this.maxSpeed = 5;
     this.maxForce = 0.03;
     this.game = game;
+    this.acceleration = new Vector(0, 0);
 
     this.velocity = new Vector(Math.random() * 2 - 1, Math.random() * 2 - 1);
     this.location = new Vector(x, y);
@@ -70,7 +114,6 @@ Boid.prototype.separate = function () {
       diff = this.location.subtract(other.location);
       diff = diff.normalize();
       diff = diff.divide(distance);
-      console.log(diff.toString());
       average = average.add(diff);
       count++;
 
@@ -179,12 +222,12 @@ Vector.prototype.getMagnitude = function() {
 	return Math.sqrt(this.x * this.x + this.y * this.y);
 };
 
-Vector.prototype.add = function(v2) {
-	return new Vector(this.x + v2.x, this.y + v2.y);
+Vector.prototype.add = function(v) {
+	return new Vector(this.x + v.x, this.y + v.y);
 };
 
-Vector.prototype.subtract = function(v2) {
-	return new Vector(this.x - v2.x, this.y - v2.y);
+Vector.prototype.subtract = function(v) {
+	return new Vector(this.x - v.x, this.y - v.y);
 };
 
 Vector.prototype.multiply = function(scalar) {
@@ -216,26 +259,32 @@ Vector.prototype.limit = function(highIN, lowIN) {
 };
 
 
-var ASSET_MANAGER = new AssetManager();
+var gameEngine = new GameEngine();
 
-ASSET_MANAGER.queueDownload("./img/960px-Blank_Go_board.png");
-ASSET_MANAGER.queueDownload("./img/black.png");
-ASSET_MANAGER.queueDownload("./img/white.png");
+window.onload = function () {
 
-ASSET_MANAGER.downloadAll(function () {
     console.log("starting up da sheild");
     var canvas = document.getElementById('gameWorld');
     var ctx = canvas.getContext('2d');
 
 
-    var gameEngine = new GameEngine();
     var boid = new Boid(gameEngine);
     gameEngine.addEntity(boid);
-    for (var i = 0; i < 100; i++) {
+    for (var i = 0; i < 98; i++) {
         boid = new Boid(gameEngine, 700 + (i * 10), 400 + (i * 10));
         gameEngine.addEntity(boid);
     }
 
     gameEngine.init(ctx);
     gameEngine.start();
+
+    socket.on("connect", function () {
+    console.log("Socket connected.")
 });
+socket.on("disconnect", function () {
+    console.log("Socket disconnected.")
+});
+socket.on("reconnect", function () {
+    console.log("Socket reconnected.")
+});
+};
